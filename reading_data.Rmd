@@ -1,0 +1,208 @@
+---
+title: "Reading Data from the Web"
+author: "Tim Hauser"
+output: github_document
+---
+
+## Initial setup
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(httr)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+## Scraping a table (rvest package)
+
+I want the first table from [this page](http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm)
+
+Read in the HTML:
+
+```{r}
+url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+drug_use_html = read_html(url)
+
+drug_use_html
+```
+
+Extract the table(s), focus on the first one
+
+```{r}
+table_marj =
+  drug_use_html %>%
+  html_nodes(css = "table") %>% 
+# this gives us all 15 tables from the webpage
+  first() %>%
+  html_table() %>% 
+  slice(-1) %>% 
+  as_tibble()
+```
+
+## Learning assessment
+
+Create a data frame that contains the cost of living table for New York from this page.
+
+```{r}
+nyc_cost = 
+  read_html("https://www.bestplaces.net/cost_of_living/city/new_york/new_york") %>%
+  html_table(header = TRUE) %>%
+  first()
+```
+
+
+## Star wars movie info -- CSS Selectors
+
+I want the data from [here](https://www.imdb.com/list/ls070150896/).
+
+```{r}
+swm_html = 
+  read_html("https://www.imdb.com/list/ls070150896/")
+```
+
+Grab elements I want
+
+```{r}
+title_vec = 
+  swm_html %>%
+  html_elements(".lister-item-header a") %>%
+# I got this from the selector gadget
+  html_text()
+
+title_vec
+
+gross_rev_vec = 
+  swm_html %>%
+  html_elements(".text-small:nth-child(7) span:nth-child(5)") %>%
+  html_text()
+
+gross_rev_vec
+
+runtime_vec = 
+  swm_html %>%
+  html_elements(".runtime") %>%
+  html_text()
+
+runtime_vec
+
+# combining the three tables:
+
+swm_df = 
+  tibble(
+    title = title_vec,
+    rev = gross_rev_vec,
+    runtime = runtime_vec)
+
+swm_df
+```
+
+## Learning Assignment
+
+This page contains the 10 most recent reviews of the movie “Napoleon Dynamite”. Use a process similar to the one above to extract the titles of the reviews:
+
+```{r}
+dynamite_html = 
+  read_html("https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1")
+
+dynamite_html
+
+review_titles = 
+  dynamite_html %>%
+  html_elements(".a-text-bold span") %>%
+  html_text()
+
+review_stars = 
+  dynamite_html %>%
+  html_elements("#cm_cr-review_list .review-rating") %>%
+  html_text()
+
+review_text = 
+  dynamite_html %>%
+  html_elements(".review-text-content span") %>%
+  html_text()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+
+reviews
+```
+
+
+## NYC Water - Using an API (httr package)
+
+Import as CSV and parse it:
+
+```{r}
+nyc_water = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.csv") %>% 
+  content("parsed")
+
+nyc_water
+```
+
+Alternative is importing it as a JSON file (however, that approach needs a bit more cleaning and hence a bit more complicated)
+
+```{r}
+nyc_water_2 = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.json") %>% 
+  content("text") %>%
+  jsonlite::fromJSON() %>%
+  as_tibble()
+
+nyc_water_2
+```
+
+## BRFSS API
+
+```{r}
+brfss_2010 = 
+  GET("https://chronicdata.cdc.gov/resource/acme-vg9e.csv",
+      query = list("$limit" = 5000)) %>% 
+# by default only 1000 get downloaded
+  content("parsed")
+
+brfss_2010
+```
+
+
+## Pokemon API
+
+```{r}
+poke = 
+  GET("http://pokeapi.co/api/v2/pokemon/1") %>%
+  content()
+```
+
+```{r}
+poke$name
+```
+
+
+```{r}
+poke$height
+```
+
+```{r}
+poke$abilities
+```
+
+
+
